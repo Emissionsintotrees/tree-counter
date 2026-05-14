@@ -40,7 +40,7 @@
       padding-bottom: 120px;
     }
     .logo {
-      width: 130px;
+      width: 160px;
       margin-bottom: 24px;
     }
     .label {
@@ -136,10 +136,7 @@
       background: #9FE1CB;
       animation: pulse 0.8s infinite;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     .confetti-container {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -162,7 +159,7 @@
 <body>
   <div class="confetti-container" id="confetti"></div>
   <div class="content">
-    <img class="logo" src="YOUR_LOGO_URL_HERE" alt="Carbon Neutral - Turn Emissions into Trees" />
+    <img class="logo" src="CarbonNeutralLogo-Primary-White.png" alt="Carbon Neutral" />
     <div class="label">Trees Planted</div>
     <div class="count-display" id="count">0</div>
     <div class="sublabel" id="sublabel">Plant your first tree</div>
@@ -188,4 +185,61 @@
     const confettiEl = document.getElementById('confetti');
     const btn = document.getElementById('addBtn');
     const syncStatus = document.getElementById('syncStatus');
-    const syncText = document.getE
+    const syncText = document.getElementById('syncText');
+    const subLabels = ['Plant your first tree','One tree at a time!','Watch your forest grow.','Every tree matters.','The earth thanks you.','Roots run deep.','Canopy incoming!'];
+    const confettiColors = ['#9FE1CB','#FAC775','#EAF3DE','#C0DD97','#ffffff'];
+
+    function showSync(type, msg) { syncStatus.className = 'sync-status show ' + type; syncText.textContent = msg; }
+    function hideSync() { syncStatus.classList.remove('show'); }
+
+    async function logToSheet(timestamp, total) {
+      await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ timestamp, total }) });
+    }
+
+    async function flushQueue() {
+      if (isSyncing || offlineQueue.length === 0) return;
+      isSyncing = true;
+      showSync('syncing', 'Syncing ' + offlineQueue.length + ' offline record' + (offlineQueue.length > 1 ? 's' : '') + '...');
+      const toSync = [...offlineQueue]; offlineQueue = [];
+      for (const entry of toSync) { try { await logToSheet(entry.timestamp, entry.total); } catch(e) { offlineQueue.unshift(entry); } }
+      isSyncing = false;
+      if (offlineQueue.length === 0) { showSync('', 'Synced to Google Sheets'); setTimeout(hideSync, 3000); }
+      else { showSync('offline', offlineQueue.length + ' record(s) still pending'); }
+    }
+
+    window.addEventListener('online', () => { flushQueue(); });
+
+    async function addTree() {
+      count++;
+      countEl.classList.remove('bump'); void countEl.offsetWidth; countEl.classList.add('bump');
+      setTimeout(() => countEl.classList.remove('bump'), 300);
+      countEl.textContent = count;
+      sublabel.textContent = count === 1 ? 'Great start!' : subLabels[Math.min(count-1, subLabels.length-1)];
+      if (MILESTONES[count]) { badge.textContent = MILESTONES[count]; badge.classList.add('show'); launchConfetti(); setTimeout(() => badge.classList.remove('show'), 3000); }
+      const entry = { timestamp: new Date().toLocaleString('en-AU', { timeZone: 'Australia/Perth' }), total: count };
+      if (navigator.onLine) {
+        try { showSync('syncing', 'Saving...'); await logToSheet(entry.timestamp, entry.total); showSync('', 'Saved to Google Sheets'); setTimeout(hideSync, 2000); }
+        catch(e) { offlineQueue.push(entry); showSync('offline', 'Offline — ' + offlineQueue.length + ' record(s) queued'); }
+      } else { offlineQueue.push(entry); showSync('offline', 'Offline — ' + offlineQueue.length + ' record(s) queued'); }
+    }
+
+    btn.addEventListener('mousedown', () => btn.classList.add('pressed'));
+    btn.addEventListener('mouseup', () => { btn.classList.remove('pressed'); addTree(); });
+    btn.addEventListener('mouseleave', () => btn.classList.remove('pressed'));
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.classList.add('pressed'); }, {passive:false});
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.classList.remove('pressed'); addTree(); });
+
+    function launchConfetti() {
+      for (let i = 0; i < 20; i++) {
+        setTimeout(() => {
+          const p = document.createElement('div'); p.className = 'confetti-piece';
+          p.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+          p.style.left = (5 + Math.random() * 90) + '%';
+          p.style.animationDuration = (1.0 + Math.random() * 0.7) + 's';
+          confettiEl.appendChild(p); setTimeout(() => p.remove(), 1800);
+        }, i * 50);
+      }
+    }
+  </script>
+</body>
+</html>
